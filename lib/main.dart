@@ -12,19 +12,15 @@ import 'package:flutter/foundation.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:traking_onmap/follow_y_req.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:google_maps_place_picker/google_maps_place_picker.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  runApp(
-
-MultiProvider(providers: [
-
-
-  ChangeNotifierProvider(create: (_)=>UpdatMarker())
-],child:const MyApp(),)
-
-  );
+  runApp(Builder(builder: (context) {
+    return const MyApp();
+  }));
 }
 
 class MyApp extends StatelessWidget {
@@ -51,6 +47,68 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   GoogleMapController? gmc;
+  LatLng? sources;
+  LatLng? destination;
+  Polyline? p;
+  pickDestination() async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PlacePicker(
+          apiKey:
+              "AIzaSyC3FEo_7bksnMhiBfGiZ9ruvW7c3bxRf2Y", // Put YOUR OWN KEY here.
+          onPlacePicked: (result) {
+            destination = LatLng(
+                result.geometry!.location.lat, result.geometry!.location.lng);
+               createRoute();
+            Navigator.of(context).pop();
+          },
+
+          initialPosition: sources!,
+          useCurrentLocation: true,
+        ),
+      ),
+    );
+
+    ///this method create juerney route after route have been choosen!
+ 
+  }
+
+  createRoute() async {
+    var mapKey = "AIzaSyC3FEo_7bksnMhiBfGiZ9ruvW7c3bxRf2Y";
+    var s = PointLatLng(sources!.latitude, sources!.longitude);
+    var d = PointLatLng(destination!.latitude, destination!.longitude);
+
+    var point = await PolylinePoints().getRouteBetweenCoordinates(mapKey, s, d);
+    List<LatLng> points =
+        point.points.map((e) => LatLng(e.latitude, e.longitude)).toList();
+
+    p = Polyline(polylineId: const PolylineId("j"), points: points,color:const Color.fromARGB(200, 0, 0, 200));
+    setState(() {
+      p = p;
+    });
+  }
+
+  updateMarker(Position p) async {
+    var l = LatLng(p.latitude, p.longitude);
+    var ic = await BitmapDescriptor.fromAssetImage(
+        const ImageConfiguration(size: Size(50, 50)), "assets/delivery.png");
+    setState(() {
+      circle = Circle(
+          circleId: CircleId("c"),
+          center: l,
+          radius: 150,
+          strokeColor: Colors.transparent,
+          fillColor: Color.fromARGB(300, 0, 0, 255));
+      marker = Marker(
+          markerId: const MarkerId("a"),
+          position: l,
+          icon: ic,
+          rotation: 0.5,
+          anchor: const Offset(0.7, 0.7));
+    });
+  }
+
   Future<Position> getCurrentPosition() async {
     var x = await Geolocator.isLocationServiceEnabled();
 
@@ -68,12 +126,14 @@ class _MyHomePageState extends State<MyHomePage> {
         }
       }
     }
-    return await Geolocator.getCurrentPosition();
+    var po = await Geolocator.getCurrentPosition();
+    sources = LatLng(po.latitude, po.longitude);
+    return po;
   }
 
   @override
   void initState() {
-    listenToLocationIsOnOrOf();
+    // listenToLocationIsOnOrOf();
     // TODO: implement initState
     super.initState();
   }
@@ -100,10 +160,10 @@ class _MyHomePageState extends State<MyHomePage> {
             // if (platform.Platform.isAndroid) openLocationSetting();
             st = Geolocator.getPositionStream().listen((event) async {
               var l = await Geolocator.isLocationServiceEnabled();
-              print(event.altitude);
+              print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
               if (l) {
                 st!.cancel();
-                setState(() {});
+                if (st != null) setState(() {});
               }
             });
             Navigator.pop(context);
@@ -128,7 +188,8 @@ class _MyHomePageState extends State<MyHomePage> {
   //   // TODO: implement dispose
   //   super.dispose();
   // }
-  Set<Marker> marker = {};
+  Marker? marker;
+  Circle? circle;
   @override
   Widget build(BuildContext context) {
     print(" er");
@@ -142,7 +203,7 @@ class _MyHomePageState extends State<MyHomePage> {
             FutureBuilder(
                 future: getCurrentPosition(),
                 builder: (context, AsyncSnapshot<Position> sa) {
-                  if (sa.connectionState == ConnectionState.waiting) {
+                  if (!sa.hasData) {
                     return const Center(
                       child: CircularProgressIndicator(),
                     );
@@ -152,32 +213,34 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Text("Location service is disabled in you device"),
                     );
                   }
-                  if (sa.connectionState == ConnectionState.done &&
-                      sa.hasData) {
+                  if (sa.hasData) {
                     var co = sa.data;
                     var ll = LatLng(co!.latitude, co.longitude);
-                    if (marker.isEmpty) {
-                      marker.add(
-                          Marker(markerId: const MarkerId("1"), position: ll));
-                    }
 
                     print("########");
                     print(ll.longitude);
 
                     return GoogleMap(
+                        polylines: {
+                          p ?? const Polyline(polylineId: PolylineId("p"))
+                        },
                         onMapCreated: (gm) {
                           gmc = gm;
                         },
-                        markers:    
-                         marker
-
-
-
-                        ,
+                        circles: {
+                          circle ??
+                              const Circle(
+                                  circleId: CircleId("c"),
+                                  radius: 50,
+                                  fillColor: Color.fromARGB(50, 0, 0, 255))
+                        },
+                        markers: {
+                          marker ?? const Marker(markerId: MarkerId("d"))
+                        },
                         compassEnabled: true,
-                        myLocationEnabled: true,
+                        myLocationButtonEnabled: true,
                         initialCameraPosition:
-                            CameraPosition(target: ll, zoom: 3));
+                            CameraPosition(target: ll, zoom: 15));
                   }
                   return Center(
                     child: Text("Location service is disabled in you device"),
@@ -198,8 +261,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         await gmc!.getLatLng(ScreenCoordinate(x: 0, y: 0));
                     var x = await gmc!.moveCamera(
                         CameraUpdate.newCameraPosition(
-                            CameraPosition(target: newcamera, zoom: 3)));
-                           
+                            CameraPosition(target: newcamera, zoom: 15)));
                   }
                 }),
             Positioned(
@@ -208,15 +270,15 @@ class _MyHomePageState extends State<MyHomePage> {
               child: MaterialButton(
                 color: Colors.green,
                 onPressed: () {
-                  Geolocator.getPositionStream().listen((event) async {
-                    await Future.delayed(const Duration(seconds: 2));
+                  Geolocator.getPositionStream(distanceFilter: 100)
+                      .listen((event) async {
+                    //  await Future.delayed(const Duration(seconds: 2));
                     var d = await FirebaseFirestore.instance
                         .collection("currentloc")
                         .get();
                     var t = d.docs;
                     var prev = t[0]["location"];
                     if (t.isEmpty) {
-
                       print("@@@@@@@@@@@@@@@@@@@@@@@@@@");
                       await FirebaseFirestore.instance
                           .collection("currentloc")
@@ -226,9 +288,12 @@ class _MyHomePageState extends State<MyHomePage> {
                     } else {
                       var docs = d.docs;
                       if (docs.isNotEmpty) {
+                        var prevd;
                         var dist = Geolocator.distanceBetween(prev.latitude,
                             prev.longitude, event.latitude, event.longitude);
-                        if (dist > 1) {
+
+                        print("dist is now $dist");
+                        if (dist > 100) {
                           await FirebaseFirestore.instance
                               .collection("currentloc")
                               .doc(docs[0].id)
@@ -236,45 +301,42 @@ class _MyHomePageState extends State<MyHomePage> {
                             "location":
                                 GeoPoint(event.latitude, event.longitude)
                           });
+                          await gmc!.moveCamera(CameraUpdate.newCameraPosition(
+                              CameraPosition(
+                                  target:
+                                      LatLng(event.latitude, event.longitude),
+                                  zoom: 15)));
 
-                          //          setState(() {
-                          //   marker = marker;
-                          // });
-
+                          updateMarker(event);
                         }
                       }
                     }
                     print("changes are ${event.latitude}");
-
-                    ///update camere and with new location when user location changed
-                    ///
-                    if (marker.isNotEmpty) {
-                      marker.remove(marker.elementAt(0));
-                    }
-
-                    marker.add(Marker(
-                        markerId: const MarkerId("1"),
-                        position: LatLng(event.latitude, event.longitude)));
-                    await gmc!.moveCamera(CameraUpdate.newCameraPosition(
-                        CameraPosition(
-                            target: LatLng(event.latitude, event.longitude),
-                            zoom: 5)));
-                    await gmc!.showMarkerInfoWindow(MarkerId("1"));
-                   });
-                  setState(() {
-                    marker = marker;
                   });
                 },
-                child: Text(" start Lisent to changes"),
+                child: Text("start Lisent to changes"),
               ),
             ),
             Positioned(
+                right: 0,
+                top: 10,
                 child: MaterialButton(
+                  onPressed: () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ShowReq()));
+                  },
+                  child: Text("show My Request!"),
+                )),
+            Positioned(
+                top: 100,
+                child: MaterialButton(
+                  color: Colors.teal,
               onPressed: () {
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (context) => const ShowReq()));
+                pickDestination();
               },
-              child: Text("show My Request!"),
+              child: Text("pick A Juerny"),
             ))
           ],
         ),
@@ -283,18 +345,16 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-class UpdatMarker extends ChangeNotifier {
-   Marker? m=Marker(markerId: MarkerId("sd"),) ;
- Marker getmarkers() {
-    return m!;
-  }
+// class UpdatMarker extends ChangeNotifier {
+//   Marker? m = Marker(
+//     markerId: MarkerId("sd"),
+//   );
+//   Marker getmarkers() {
+//     return m!;
+//   }
 
-  Future updateMarker(LatLng v) async {
-   
-      m=
-        Marker(markerId: MarkerId("1"), position: v)
-      ;
-      notifyListeners();
-    }
-  }
-
+//   Future updateMarker(LatLng v) async {
+//     m = Marker(markerId: MarkerId("1"), position: v);
+//     notifyListeners();
+//   }
+// }

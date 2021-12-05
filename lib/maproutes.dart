@@ -46,27 +46,24 @@ class _MapRouteState extends State<MapRoute> {
             ),
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.location_on_outlined),
-        onPressed: (){
+        onPressed: () {
           Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PlacePicker(
-          apiKey: "AIzaSyC3FEo_7bksnMhiBfGiZ9ruvW7c3bxRf2Y",   // Put YOUR OWN KEY here.
-          onPlacePicked: (result) { 
-            print(result!.geometry); 
-            Navigator.of(context).pop();
-          },
-          
-          initialPosition: LatLng(s!.latitude, s!.longitude),
-          useCurrentLocation: true,
-        ),
-      ),
-    );
+            context,
+            MaterialPageRoute(
+              builder: (context) => PlacePicker(
+                apiKey:
+                    "AIzaSyC3FEo_7bksnMhiBfGiZ9ruvW7c3bxRf2Y", // Put YOUR OWN KEY here.
+                onPlacePicked: (result) {
+                  print(result.geometry!.location.lat);
+                 
+                  Navigator.of(context).pop();
+                },
 
-
-         
-
-
+                initialPosition: LatLng(s!.latitude, s!.longitude),
+                useCurrentLocation: true,
+              ),
+            ),
+          );
         },
       ),
     );
