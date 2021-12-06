@@ -60,7 +60,24 @@ class _MyHomePageState extends State<MyHomePage> {
           onPlacePicked: (result) {
             destination = LatLng(
                 result.geometry!.location.lat, result.geometry!.location.lng);
-               createRoute();
+
+            ///remove previous marker
+            marker!.where((element) =>
+                element.markerId.value != "a" && element.markerId.value != "b");
+            //detination marker
+            marker!.add(Marker(
+                markerId: const MarkerId("b"),
+                position: destination!,
+                rotation: 0.5,
+                anchor: const Offset(0.7, 0.7)));
+            //source marker
+            marker!.add(Marker(
+                markerId: const MarkerId("a"),
+                position: sources!,
+                rotation: 0.5,
+                anchor: const Offset(0.7, 0.7)));
+
+            createRoute();
             Navigator.of(context).pop();
           },
 
@@ -71,7 +88,6 @@ class _MyHomePageState extends State<MyHomePage> {
     );
 
     ///this method create juerney route after route have been choosen!
- 
   }
 
   createRoute() async {
@@ -83,7 +99,10 @@ class _MyHomePageState extends State<MyHomePage> {
     List<LatLng> points =
         point.points.map((e) => LatLng(e.latitude, e.longitude)).toList();
 
-    p = Polyline(polylineId: const PolylineId("j"), points: points,color:const Color.fromARGB(200, 0, 0, 200));
+    p = Polyline(
+        polylineId: const PolylineId("j"),
+        points: points,
+        color: const Color.fromARGB(200, 0, 0, 200));
     setState(() {
       p = p;
     });
@@ -100,13 +119,18 @@ class _MyHomePageState extends State<MyHomePage> {
           radius: 150,
           strokeColor: Colors.transparent,
           fillColor: Color.fromARGB(300, 0, 0, 255));
-      marker = Marker(
-          markerId: const MarkerId("a"),
+      marker = marker!.where((element) {
+        return element.markerId.value != "d";
+      }).toSet();
+
+      marker!.add(Marker(
+          markerId: const MarkerId("d"),
           position: l,
           icon: ic,
           rotation: 0.5,
-          anchor: const Offset(0.7, 0.7));
+          anchor: const Offset(0.7, 0.7)));
     });
+    marker = marker;
   }
 
   Future<Position> getCurrentPosition() async {
@@ -133,7 +157,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void initState() {
-    // listenToLocationIsOnOrOf();
+    listenToLocationIsOnOrOf();
     // TODO: implement initState
     super.initState();
   }
@@ -142,7 +166,14 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future listenToLocationIsOnOrOf() async {
     var xt = await Geolocator.isLocationServiceEnabled();
-
+    st = Geolocator.getPositionStream().listen((event) async {
+      var l = await Geolocator.isLocationServiceEnabled();
+      print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
+      if (l) {
+        st!.cancel();
+        if (st != null) setState(() {});
+      }
+    });
     var x = AlertDialog(
       title: Text("location is disable enable"),
       actions: [
@@ -178,7 +209,7 @@ class _MyHomePageState extends State<MyHomePage> {
         )
       ],
     );
-    if (!xt) showDialog(context: context, builder: (context) => x);
+    // if (!xt) showDialog(context: context, builder: (context) => x);
   }
 
   // @override
@@ -188,7 +219,7 @@ class _MyHomePageState extends State<MyHomePage> {
   //   // TODO: implement dispose
   //   super.dispose();
   // }
-  Marker? marker;
+  Set<Marker>? marker = {};
   Circle? circle;
   @override
   Widget build(BuildContext context) {
@@ -203,7 +234,8 @@ class _MyHomePageState extends State<MyHomePage> {
             FutureBuilder(
                 future: getCurrentPosition(),
                 builder: (context, AsyncSnapshot<Position> sa) {
-                  if (!sa.hasData) {
+                  if (!sa.hasData &&
+                      sa.connectionState == ConnectionState.waiting) {
                     return const Center(
                       child: CircularProgressIndicator(),
                     );
@@ -221,6 +253,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     print(ll.longitude);
 
                     return GoogleMap(
+                        myLocationEnabled: true,
                         polylines: {
                           p ?? const Polyline(polylineId: PolylineId("p"))
                         },
@@ -234,9 +267,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                   radius: 50,
                                   fillColor: Color.fromARGB(50, 0, 0, 255))
                         },
-                        markers: {
-                          marker ?? const Marker(markerId: MarkerId("d"))
-                        },
+                        markers:
+                            marker ?? {const Marker(markerId: MarkerId("d"))},
                         compassEnabled: true,
                         myLocationButtonEnabled: true,
                         initialCameraPosition:
@@ -272,6 +304,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 onPressed: () {
                   Geolocator.getPositionStream(distanceFilter: 100)
                       .listen((event) async {
+                    sources = LatLng(event.latitude, event.longitude);
+
                     //  await Future.delayed(const Duration(seconds: 2));
                     var d = await FirebaseFirestore.instance
                         .collection("currentloc")
@@ -313,6 +347,8 @@ class _MyHomePageState extends State<MyHomePage> {
                     }
                     print("changes are ${event.latitude}");
                   });
+
+                  setState(() {});
                 },
                 child: Text("start Lisent to changes"),
               ),
@@ -333,11 +369,11 @@ class _MyHomePageState extends State<MyHomePage> {
                 top: 100,
                 child: MaterialButton(
                   color: Colors.teal,
-              onPressed: () {
-                pickDestination();
-              },
-              child: Text("pick A Juerny"),
-            ))
+                  onPressed: () {
+                    pickDestination();
+                  },
+                  child: Text("pick A Juerny"),
+                ))
           ],
         ),
       ),
