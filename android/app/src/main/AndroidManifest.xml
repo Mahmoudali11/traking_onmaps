@@ -7,7 +7,7 @@
         android:label="traking_onmap"
         android:icon="@mipmap/ic_launcher">
         <meta-data android:name="com.google.android.geo.API_KEY"
-         android:value="AIzaSyC3FEo_7bksnMhiBfGiZ9ruvW7c3bxRf2Y"/>
+         android:value="AIzaSyC3FEo_7"/>
         <activity
             android:name=".MainActivity"
             android:launchMode="singleTop"
